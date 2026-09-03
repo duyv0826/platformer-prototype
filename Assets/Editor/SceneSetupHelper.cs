@@ -59,7 +59,9 @@ namespace Prototype.Editor
 
             // 相机跟随
             var follow = camGo.AddComponent<CameraFollow2D>();
-            follow.target = player.transform;
+            var followSO = new SerializedObject(follow);
+            followSO.FindProperty("target").objectReferenceValue = player.transform;
+            followSO.ApplyModifiedPropertiesWithoutUndo();
 
             // 收集物
             for (int i = 0; i < CollectibleCount; i++)
@@ -74,8 +76,10 @@ namespace Prototype.Editor
             // 过关条件
             var win = new GameObject("WinCondition");
             var wc = win.AddComponent<WinCondition>();
-            wc.targetScore = TargetScore;
-            wc.nextSceneName = "Result";
+            var wcSO = new SerializedObject(wc);
+            wcSO.FindProperty("targetScore").intValue = TargetScore;
+            wcSO.FindProperty("nextSceneName").stringValue = "Result";
+            wcSO.ApplyModifiedPropertiesWithoutUndo();
 
             // HUD
             CreateHUD(TargetScore);
@@ -119,8 +123,10 @@ namespace Prototype.Editor
             btnRT.sizeDelta = new Vector2(160f, 44f);
 
             var resultUI = canvasGo.AddComponent<ResultUI>();
-            resultUI.finalScoreText = scoreText;
-            resultUI.replayButton = btn;
+            var resultSO = new SerializedObject(resultUI);
+            resultSO.FindProperty("finalScoreText").objectReferenceValue = scoreText;
+            resultSO.FindProperty("replayButton").objectReferenceValue = btn;
+            resultSO.ApplyModifiedPropertiesWithoutUndo();
 
             EditorSceneManager.SaveScene(scene, $"{ScenesDir}/Result.unity");
             AssetDatabase.SaveAssets();
@@ -150,7 +156,9 @@ namespace Prototype.Editor
             var hud = canvasGo.AddComponent<HUD>();
             hud.scoreText = scoreText;
             hud.hintText = hintText;
-            hud.targetScore = targetScore;
+            var hudSO = new SerializedObject(hud);
+            hudSO.FindProperty("targetScore").intValue = targetScore;
+            hudSO.ApplyModifiedPropertiesWithoutUndo();
         }
 
         /// <summary>生成带纯白精灵与 SpriteRenderer 的 2D 对象（尺寸即为世界单位）。</summary>
@@ -221,7 +229,7 @@ namespace Prototype.Editor
             obj.transform.SetParent(parent, false);
             var text = obj.AddComponent<Text>();
             text.text = content;
-            text.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             text.fontSize = fontSize;
             text.alignment = align;
             text.color = color;
