@@ -15,7 +15,8 @@ namespace Prototype.Gameplay
         [SerializeField] private float moveSpeed = 6f;
         [SerializeField] private float jumpForce = 9f;
         [SerializeField] private float groundCheckDistance = 0.6f;
-        [SerializeField] private LayerMask groundMask = ~0;
+        [Tooltip("留 0 时在 Awake 中自动解析为 Ground 图层")]
+        [SerializeField] private LayerMask groundMask;
         [Tooltip("留空则使用自身位置作为地面检测起点")]
         [SerializeField] private Transform groundCheck;
 
@@ -28,6 +29,10 @@ namespace Prototype.Gameplay
             if (groundCheck == null)
             {
                 groundCheck = transform;
+            }
+            if (groundMask == 0)
+            {
+                groundMask = LayerMask.GetMask("Ground");
             }
         }
 

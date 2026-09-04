@@ -47,6 +47,7 @@ namespace Prototype.Editor
 
             // 地面（12 x 1 单位，纯白占位方块）
             var ground = CreateSpriteObject("Ground", Color.white, new Vector2(12f, 1f), new Vector3(6f, -2f, 0f));
+            ground.layer = LayerMask.NameToLayer("Ground");
             ground.AddComponent<BoxCollider2D>();
 
             // 玩家（带 Rigidbody2D + 2D 控制器 + 碰撞体）
