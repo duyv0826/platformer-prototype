@@ -18,8 +18,7 @@ namespace Prototype.Editor
     public static class SceneSetupHelper
     {
         private const string ScenesDir = "Assets/Scenes";
-        private const int CollectibleCount = 8;
-        private const int TargetScore = 50;
+        private const int TargetScore = 80;
 
         // ---------- 菜单入口 ----------
 
@@ -31,24 +30,34 @@ namespace Prototype.Editor
             Debug.Log("[Prototype] 全部场景已搭建：Main.unity / Result.unity");
         }
 
-        [MenuItem("Prototype/搭建场景/Main（2D 最小可玩闭环）")]
+        [MenuItem("Prototype/搭建场景/Main（M1 关卡）")]
         public static void BuildMain()
         {
             EnsureScenesFolder();
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
-            // 2D 摄像头（正交，侧视）
+            // 2D 摄像头（正交，侧视，对准关卡中部）
             var camGo = new GameObject("Main Camera");
             var cam = camGo.AddComponent<Camera>();
             cam.orthographic = true;
             cam.orthographicSize = 6f;
-            cam.transform.position = new Vector3(6f, 3f, -10f);
+            cam.transform.position = new Vector3(12f, 3f, -10f);
             camGo.AddComponent<AudioListener>();
 
-            // 地面（12 x 1 单位，纯白占位方块）
-            var ground = CreateSpriteObject("Ground", Color.white, new Vector2(12f, 1f), new Vector3(6f, -2f, 0f));
+            // 主地面（24 x 1，纯白占位方块）
+            var ground = CreateSpriteObject("Ground", Color.white, new Vector2(24f, 1f), new Vector3(12f, -2f, 0f));
             ground.layer = LayerMask.NameToLayer("Ground");
             ground.AddComponent<BoxCollider2D>();
+
+            // 边界墙（左右各一道，防走出世界）
+            CreateWall("LeftWall", new Vector3(0.25f, 0f, 0f));
+            CreateWall("RightWall", new Vector3(23.75f, 0f, 0f));
+
+            // 浮空平台（Ground 图层，可被地面检测识别）
+            CreatePlatform("Platform_A", new Vector3(6f, 1f, 0f), new Vector2(4f, 0.5f));
+            CreatePlatform("Platform_B", new Vector3(12f, 2f, 0f), new Vector2(4f, 0.5f));
+            CreatePlatform("Platform_C", new Vector3(18f, 1f, 0f), new Vector2(4f, 0.5f));
+            CreatePlatform("Platform_D", new Vector3(21.5f, 3f, 0f), new Vector2(3f, 0.5f));
 
             // 玩家（带 Rigidbody2D + 2D 控制器 + 碰撞体）
             var player = CreateSpriteObject("Player", Color.cyan, new Vector2(0.8f, 0.8f), new Vector3(2f, -1f, 0f));
@@ -64,11 +73,19 @@ namespace Prototype.Editor
             followSO.FindProperty("target").objectReferenceValue = player.transform;
             followSO.ApplyModifiedPropertiesWithoutUndo();
 
-            // 收集物
-            for (int i = 0; i < CollectibleCount; i++)
+            // 收集物（按 M1 关卡设计定稿分布）
+            Vector3[] collectiblePositions =
+            {
+                new Vector3(3f, -0.5f, 0f), new Vector3(9f, -0.5f, 0f),
+                new Vector3(15f, -0.5f, 0f), new Vector3(21f, -0.5f, 0f),
+                new Vector3(4.5f, 1.4f, 0f), new Vector3(7.5f, 1.4f, 0f),
+                new Vector3(10.5f, 2.4f, 0f), new Vector3(13.5f, 2.4f, 0f),
+                new Vector3(18f, 1.4f, 0f), new Vector3(21.5f, 3.4f, 0f)
+            };
+            for (int i = 0; i < collectiblePositions.Length; i++)
             {
                 var c = CreateSpriteObject("Collectible_" + i, new Color(1f, 0.85f, 0.2f),
-                    new Vector2(0.5f, 0.5f), new Vector3(Random.Range(1f, 11f), Random.Range(-0.5f, 0.5f), 0f));
+                    new Vector2(0.5f, 0.5f), collectiblePositions[i]);
                 var col = c.AddComponent<CircleCollider2D>();
                 col.isTrigger = true;
                 c.AddComponent<Collectible2D>();
@@ -135,6 +152,23 @@ namespace Prototype.Editor
         }
 
         // ---------- 内部工具 ----------
+
+        /// <summary>生成带碰撞体的边界墙（默认图层，不参与地面检测）。</summary>
+        private static GameObject CreateWall(string name, Vector3 center)
+        {
+            var wall = CreateSpriteObject(name, Color.gray, new Vector2(0.5f, 8f), center);
+            wall.AddComponent<BoxCollider2D>();
+            return wall;
+        }
+
+        /// <summary>生成 Ground 图层浮空平台（可被玩家地面检测射线识别）。</summary>
+        private static GameObject CreatePlatform(string name, Vector3 center, Vector2 size)
+        {
+            var platform = CreateSpriteObject(name, Color.white, size, center);
+            platform.layer = LayerMask.NameToLayer("Ground");
+            platform.AddComponent<BoxCollider2D>();
+            return platform;
+        }
 
         private static void CreateHUD(int targetScore)
         {
