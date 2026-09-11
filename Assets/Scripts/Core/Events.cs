@@ -39,6 +39,16 @@ namespace Prototype.Core
         }
     }
 
+    public readonly struct LivesChangedEvent
+    {
+        public readonly int Lives;
+
+        public LivesChangedEvent(int lives)
+        {
+            Lives = lives;
+        }
+    }
+
     public readonly struct SceneLoadedEvent
     {
         public readonly string SceneName;
@@ -46,6 +56,16 @@ namespace Prototype.Core
         public SceneLoadedEvent(string sceneName)
         {
             SceneName = sceneName;
+        }
+    }
+
+    public readonly struct ComboChangedEvent
+    {
+        public readonly int Combo;
+
+        public ComboChangedEvent(int combo)
+        {
+            Combo = combo;
         }
     }
 }
