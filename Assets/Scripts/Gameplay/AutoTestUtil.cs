@@ -4,8 +4,8 @@ using UnityEngine;
 namespace Prototype.Gameplay
 {
     /// <summary>
-    /// 自动测试脚本（AutoPlayTest / AutoTestManager / AutoTestRunner）的公共逻辑。
-    /// 抽取三者间重复的「按名字前缀收集位置 / 按 X 排序 / 地面检测射线」代码，
+    /// 自动测试脚本（AutoPlayTest）的公共逻辑。
+    /// 抽取历史多套自动测试里重复的「按名字前缀收集位置 / 按 X 排序 / 地面检测射线」代码，
     /// 每个方法与原内联实现逐语句等价，运行行为完全一致。
     /// </summary>
     public static class AutoTestUtil

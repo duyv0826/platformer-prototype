@@ -139,7 +139,6 @@ flowchart LR
         HUD_Score["HUD<br/>OnScoreChanged"]
         HUD_Lives["HUD<br/>OnLivesChanged"]
         HUD_Combo["HUD<br/>OnComboChanged"]
-        WC["WinCondition<br/>OnScoreChanged"]
         PH["PlayerHealth<br/>Start() 发初始 Lives"]
     end
 
@@ -152,7 +151,6 @@ flowchart LR
     SM_Load --> EB_SLE
 
     EB_SCE --> HUD_Score
-    EB_SCE --> WC
     EB_LCE --> HUD_Lives
     EB_CCE --> HUD_Combo
     EB_LCE --> PH
@@ -179,7 +177,7 @@ public enum GameState { Boot, MainMenu, Playing, Paused, GameOver }
 | 事件 | 字段 | 发布方 | 主要订阅方 |
 |---|---|---|---|
 | `GameStateChangedEvent` | `Previous: GameState` + `Current: GameState` | GameManager.ChangeState | （当前无人订阅，保留扩展） |
-| `ScoreChangedEvent` | `Total: int` + `Delta: int` | GameManager.AddScore / RegisterCollect | HUD、WinCondition |
+| `ScoreChangedEvent` | `Total: int` + `Delta: int` | GameManager.AddScore / RegisterCollect | HUD |
 | `LivesChangedEvent` | `Lives: int` | GameManager.LoseLife / ResetScore | HUD、PlayerHealth（Start） |
 | `SceneLoadedEvent` | `SceneName: string` | SceneManager | （当前无人订阅） |
 | `ComboChangedEvent` | `Combo: int` | GameManager.RegisterCollect / Update | HUD |
@@ -332,7 +330,7 @@ Update 里每帧检查：
 ### 使用场景
 
 - `FlagGoal` 触旗 → `SceneManager.Instance.Load("Result")`
-- `WinCondition` 分数达标 → `SceneManager.Instance.LoadAsync("Result")`
+- 通关由 `FlagGoal` 触旗调用 `SceneManager` 切 `Result`；`WinCondition`（分数达标切场景）是 M1 路径，已于 2026-09-30 删除
 - `PlayerHealth.Die()` → `SceneManager.Instance.ReloadCurrent()`
 - `ResultUI.OnReplay()` → `SceneManager.Instance.Load("Main")`
 

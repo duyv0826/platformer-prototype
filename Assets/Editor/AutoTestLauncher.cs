@@ -30,7 +30,7 @@ namespace Prototype.Editor
 
         private static void OnEditorUpdate()
         {
-            // 已停用：旧版自动测试会在进入 Play 后给玩家挂 AutoTestRunner 并禁用手动控制，
+            // 已停用：旧版自动测试会在进入 Play 后给玩家挂自动测试组件并禁用手动控制，
             // 导致试玩时玩家不受键盘控制。完整闭环验证请用菜单 Prototype/验证/M1 通关闭环。
             // if (_waitingForPlayer && EditorApplication.isPlaying)
             // {

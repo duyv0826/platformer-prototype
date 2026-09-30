@@ -19,7 +19,6 @@
 | FireHazard.cs | `FireHazard` | 静态火焰陷阱（2 帧动画 + 触发/碰撞受伤） |
 | MovingPlatform.cs | `MovingPlatform` | 上下浮动平台（玩家踩踏时自动携带） |
 | FlagGoal.cs | `FlagGoal` | 终点旗帜（触旗通关 + 延迟切换 Result） |
-| WinCondition.cs | `WinCondition` | 分数达标过关条件（监听 ScoreChangedEvent） |
 | CameraFollow2D.cs | `CameraFollow2D` | 正交相机平滑跟随 |
 | Parallax.cs | `Parallax` | 2D 水平视差背景 |
 | FloatAnim.cs | `FloatAnim` | 收集物上下浮动动画 |
@@ -27,8 +26,6 @@
 | LevelConfig.cs | `LevelConfig` | 关卡收集物总数注入 GameManager |
 | SpriteAnimUtil.cs | `SpriteAnimUtil` (static) | 2 帧精灵动画的公共工具 |
 | AutoPlayTest.cs | `AutoPlayTest` | 自动通关测试（按 T 键启动） |
-| AutoTestManager.cs | `AutoTestManager` | 自动测试管理器（硬编码关卡路径） |
-| AutoTestRunner.cs | `AutoTestRunner` | 另一套旧版自动测试（已停用） |
 | AutoTestUtil.cs | `AutoTestUtil` (static) | 自动测试公共工具（GatherByNamePrefix / SortByX / Grounded） |
 
 ---
@@ -255,7 +252,7 @@ sequenceDiagram
     participant GM as GameManager
     participant EB as EventBus
     participant HUD as HUD
-    participant WC as WinCondition
+    participant FG as FlagGoal
     participant Sfx as Sfx
     participant FX as CollectBurst + FloatingText
 
@@ -275,7 +272,6 @@ sequenceDiagram
     
     par 订阅者响应
         EB->>HUD: 刷新分数 + 进度条 + 连击提示
-        EB->>WC: 检查 e.Total >= targetScore
     end
     
     C2D->>FX: CollectBurst.Spawn (粒子)
@@ -283,9 +279,9 @@ sequenceDiagram
     C2D->>Sfx: Collect()
     C2D->>C2D: Destroy(gameObject)
     
-    alt 分数达标
-        WC->>GM: MarkWon()
-        WC->>WC: Load("Result")
+    alt 触碰终点旗（FlagGoal，现行唯一通关路径）
+        FG->>GM: MarkWon()
+        Note over FG: 延迟 0.6s 后 SceneManager.Load("Result")
     end
 ```
 触发流程：
@@ -402,35 +398,18 @@ OnTriggerEnter2D:
   5. SceneManager.Instance.Load("Result")
 ```
 
-**当前项目有两套过关机制**：
-1. `WinCondition` —— 分数达标（50 分）自动切 Result
-2. `FlagGoal` —— 触旗切 Result
+**当前项目的过关机制只有一套**：
+1. `FlagGoal` —— 触旗切 Result（旧版 `WinCondition` 的分数达标路径已于 2026-09-30 删除）
 
-Main 场景用 FlagGoal 作为终点，WinCondition 也同时挂着（但 targetScore 不同）。
+Main 场景**只挂 FlagGoal**：按组件清单实测，Main.unity 里 FlagGoal×1，分数达标不会切场景。
 
 ---
 
-## 3.8 WinCondition —— 分数过关条件
+## 3.8 WinCondition —— 分数过关条件（已移除）
 
-**文件**：`Assets/Scripts/Gameplay/WinCondition.cs`
+**已于 2026-09-30 删除**。
 
-纯事件驱动，只订阅不被订阅。
-
-```csharp
-OnEnable:  Subscribe<ScoreChangedEvent>
-OnDisable: Unsubscribe<ScoreChangedEvent>
-
-OnScoreChanged(e):
-  if (e.Total >= targetScore) → Load(或 LoadAsync)(nextSceneName)
-```
-
-### 序列化字段
-
-| 字段 | 默认值 | 说明 |
-|---|---|---|
-| `targetScore` | 50 | 过关分数线 |
-| `nextSceneName` | "Result" | 切到的场景名 |
-| `loadAsync` | false | 是否异步加载 |
+原设计是「分数达标 → 切 Result」的 M1 过关路径：`OnEnable` 订阅 `ScoreChangedEvent`，`e.Total >= targetScore` 就 `Load(nextSceneName)`。它与 §3.7 `FlagGoal` 的触旗通关互斥，且从未挂载在 Main 场景（组件清单实测 FlagGoal×1、WinCondition×0）。现行过关判定只认 §3.7 `FlagGoal`，星级由收集率决定。
 
 ---
 
@@ -517,13 +496,11 @@ Timer 是 ref 参数，达到间隔时翻帧。
 
 ### 设计背景
 
-这个项目有 3 套自动测试实现 + 1 套闭环验证器，说明作者在测试策略上迭代过。
+自动测试实现现存 1 套（`AutoPlayTest` + `AutoTestUtil`）+ 1 套闭环验证器；另有两套旧实现（`AutoTestManager` / `AutoTestRunner`）已于 2026-09-30 删除，说明作者在测试策略上迭代过。
 
 | 工具 | 状态 | 触发方式 | 说明 |
 |---|---|---|---|
 | AutoPlayTest | 可用 | 场景中挂脚本 + 按 T 键 | 通用收集 → 排序 → 逐个取 |
-| AutoTestManager | 可用 | Start 自动启动 | **硬编码** M1 关卡布局的精确测试 |
-| AutoTestRunner | 已停用 | 已注释 | 旧版，会劫持玩家控制 |
 | M1ClosureVerifier | ★ 推荐 | 菜单 Prototype/验证/M1 通关闭环 | 最完整的端到端验证 |
 | AutoTestUtil | 支撑工具 | 被其他测试脚本引用 | 公共逻辑（Gather/Sort/Grounded） |
 
@@ -539,7 +516,7 @@ Timer 是 ref 参数，达到间隔时翻帧。
 
 ```
 菜单触发 → 打开 Main → EnterPlay
-  → 模拟 gm.AddScore(10) × 8（达到 80 分）
+  → 逐个读取场景中真实的 Collectible2D，用其自身 scoreValue 调 gm.RegisterCollect()，期望分数由连击返回值累加得出
   → 等待切 Result（6s 超时）
   → 校验 Result 显示 "最终分数: 80"
   → 点击 ReplayButton

@@ -43,7 +43,6 @@ Collectible2D.OnTriggerEnter2D
   -> GameManager.RegisterCollect()        // 更新分数/连击
   -> EventBus.Publish(ScoreChangedEvent)  // 广播
       -> HUD.OnScoreChanged()              // 刷新分数/进度条
-      -> WinCondition.OnScoreChanged()     // 达到目标 -> 切场景
       -> ResultUI（结算页读取最终分数）
 ```
 

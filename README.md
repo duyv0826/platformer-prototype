@@ -36,10 +36,11 @@ ProjectSettings/
 1. 用 **Unity 2022.3.62f3c1** 打开本文件夹作为工程根目录（已预置 `EditorSettings.asset` 的 2D 行为模式；其余如 Input 轴、Player 标签等使用引擎默认值）。
 2. 菜单栏执行 **`Prototype / 搭建场景 / 全部（Main + Result）`**，一键生成 `Assets/Scenes/Main.unity` 与 `Assets/Scenes/Result.unity`。
 3. 打开 `Main` 场景，点 **Play**。
-4. **A / D 或方向键**左右移动，**空格**跳跃；碰到黄色收集物加分。
-5. 达到 **50 分** 自动切换至 `Result` 结算场景；点「再玩一次」重置分数回到 `Main`。
+4. **A / D 或方向键**左右移动，**空格**跳跃；碰到收集物加分（15 颗红心各 5 分、3 颗蓝宝石各 15 分，连续收集有连击加成）。
+5. 走到终点**碰到旗帜**即通关并切换至 `Result` 结算场景；点「再玩一次」重置本局回到 `Main`。分数不决定通关，只决定结算星级里的连击表现。
 
-数据流：`Collectible2D` → `GameManager.AddScore` → `EventBus.Publish(ScoreChangedEvent)` → `HUD` / `WinCondition` 订阅刷新，模块间零直接引用。
+数据流：`Collectible2D` → `GameManager.RegisterCollect`（连击计分）→ `EventBus.Publish(ScoreChangedEvent)` → `HUD` 订阅刷新，模块间零直接引用。
+通关数据流：`FlagGoal.OnTriggerEnter2D` → `GameManager.MarkWon` → `SceneManager.Load("Result")` → `ResultUI` 按 `Collected / TotalCollectibles` 评星。
 
 ## 与脚手架的差异（已按 2D 适配）
 

@@ -6,14 +6,18 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using Prototype.Core;
+using Prototype.Gameplay;
 
 namespace Prototype.Verification
 {
     /// <summary>
     /// M1 通关闭环验证器。菜单 Prototype/验证/M1 通关闭环 触发：
-    /// 打开 Main → 进入 Play → 模拟收集 8 次（80 分）→ 校验切换到 Result →
-    /// 校验最终分数显示 → 点击「再玩一次」→ 校验回到 Main 且分数重置 → 退出 Play。
+    /// 打开 Main → 进入 Play → 逐个收集场景里真实存在的收集物 →
+    /// 把玩家放到旗帜上方，靠真实物理触发 FlagGoal 切到 Result →
+    /// 校验结算页的分数 / 收集数 / 星级 → 点击「再玩一次」→ 校验回到 Main 且状态已重置 → 退出 Play。
+    /// 期望值全部从场景组件与 GameManager 返回值推得，不写死分数，关卡增删收集物时本验证自动跟随。
     /// 验证结果通过 Debug.Log 输出到 Console（含 PASS/FAIL 标记）。
+    /// 注：落向旗帜约 1 秒，期间若被巡逻敌人/火焰打死则通关步骤会 FAIL，这是玩法层面的正常风险，非本验证的缺陷。
     /// </summary>
     public static class M1ClosureVerifier
     {
@@ -39,6 +43,12 @@ namespace Prototype.Verification
 
     public class ClosureDriver : MonoBehaviour
     {
+        // 时序参数集中在常量里，别散在流程中当裸数字
+        private const float CollectInterval = 0.05f;
+        private const float DropHeight = 1.8f;
+        private const float SceneSwitchTimeout = 6f;
+        private const float UiSettleDelay = 0.6f;
+
         private void Awake()
         {
             DontDestroyOnLoad(gameObject);
@@ -52,7 +62,7 @@ namespace Prototype.Verification
         private IEnumerator Run()
         {
             Debug.Log("[验证] ==== M1 通关闭环开始 ====");
-            yield return new WaitForSeconds(0.6f);
+            yield return new WaitForSeconds(UiSettleDelay);
 
             var gm = GameManager.Instance;
             if (gm == null)
@@ -63,29 +73,70 @@ namespace Prototype.Verification
             }
             Check($"初始分数为 0（实际 {gm.Score}）", gm.Score == 0);
 
-            // 模拟收集 8 次（每次 +10 → 80 分，等价于收集 8 个收集物）
-            for (int i = 0; i < 8; i++)
+            // 逐个收集场景里真实存在的收集物：分值取自各组件自身，连击倍率取自 GameManager 返回值，
+            // 因此期望分数完全由场景数据推得，不写死 50 / 60 / 80 任何一个数字。
+            var collectibles = Object.FindObjectsOfType<Collectible2D>();
+            if (collectibles.Length == 0)
             {
-                gm.AddScore(10);
-                yield return new WaitForSeconds(0.15f);
+                Debug.LogError("[验证] FAIL : 场景里找不到 Collectible2D");
+                Finish(false);
+                yield break;
             }
-            Check($"8 次收集后分数 = 80（实际 {gm.Score}）", gm.Score == 80);
 
-            // 等待分数达标后自动切换到 Result
-            yield return WaitScene("Result", 6f);
+            int expected = 0;
+            foreach (var c in collectibles)
+            {
+                var prop = new SerializedObject(c).FindProperty("scoreValue");
+                int value = prop != null ? prop.intValue : 0;
+                expected += value * gm.RegisterCollect(value);
+                yield return new WaitForSeconds(CollectInterval);
+            }
+
+            Check($"收满全部 {collectibles.Length} 个收集物后 Collected = {collectibles.Length}（实际 {gm.Collected}）",
+                gm.Collected == collectibles.Length);
+            Check($"分数与「分值×连击」累计一致，期望 {expected}（实际 {gm.Score}）", gm.Score == expected);
+            Check($"LevelConfig 注入的总数与场景收集物数一致，TotalCollectibles = {gm.TotalCollectibles}（场景实际 {collectibles.Length}）",
+                gm.TotalCollectibles == collectibles.Length);
+
+            // 通关由触旗完成：把玩家放到旗帜正上方，让真实的物理重叠触发 FlagGoal
+            var player = GameObject.FindGameObjectWithTag("Player");
+            var flag = Object.FindObjectOfType<FlagGoal>();
+            if (player == null || flag == null)
+            {
+                Debug.LogError($"[验证] FAIL : 玩家={(player == null ? "未找到(Tag=Player)" : player.name)}，" +
+                               $"旗帜={(flag == null ? "未找到 FlagGoal" : flag.name)}，无法验证触旗通关");
+                Finish(false);
+                yield break;
+            }
+
+            var body = player.GetComponent<Rigidbody2D>();
+            if (body != null) body.velocity = Vector2.zero;
+            player.transform.position = flag.transform.position + Vector3.up * DropHeight;
+
+            yield return WaitScene("Result", SceneSwitchTimeout);
             bool switched = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name == "Result";
-            Check("分数达标后切换到 Result 场景", switched);
+            Check("触旗后切换到 Result 场景", switched);
             if (!switched)
             {
                 Finish(false);
                 yield break;
             }
 
-            // Result 场景：最终分数显示
-            yield return new WaitForSeconds(0.6f);
+            // Result 场景：分数、收集统计、星级
+            yield return new WaitForSeconds(UiSettleDelay);
             var finalText = FindText("FinalScore");
-            bool scoreShown = finalText != null && finalText.text.Contains("80");
-            Check($"Result 显示最终分数 80（实际: {(finalText != null ? finalText.text : "未找到 FinalScore")}）", scoreShown);
+            bool scoreShown = finalText != null && finalText.text.Contains(expected.ToString());
+            Check($"Result 显示最终分数 {expected}（实际: {(finalText != null ? finalText.text : "未找到 FinalScore")}）", scoreShown);
+
+            var collectInfo = FindText("CollectInfo");
+            bool collectShown = collectInfo != null
+                && collectInfo.text.Contains($"{collectibles.Length} / {collectibles.Length}");
+            Check($"Result 显示收集 {collectibles.Length} / {collectibles.Length}（实际: {(collectInfo != null ? collectInfo.text : "未找到 CollectInfo")}）",
+                collectShown);
+
+            var starsText = FindText("Stars");
+            bool threeStars = starsText != null && starsText.text.StartsWith("★★★");
+            Check($"收满应为 ★★★（实际: {(starsText != null ? starsText.text : "未找到 Stars")}）", threeStars);
 
             // 点击「再玩一次」
             var replay = FindButton("ReplayButton");
@@ -97,13 +148,14 @@ namespace Prototype.Verification
             }
             replay.onClick.Invoke();
 
-            // 回到 Main 且分数重置
-            yield return WaitScene("Main", 6f);
+            // 回到 Main 且状态重置
+            yield return WaitScene("Main", SceneSwitchTimeout);
             bool back = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name == "Main";
             Check("再玩一次回到 Main 场景", back);
             Check($"分数已重置为 0（实际 {gm.Score}）", gm.Score == 0);
+            Check($"收集数已重置为 0（实际 {gm.Collected}）", gm.Collected == 0);
 
-            Finish(back && scoreShown && gm.Score == 0);
+            Finish(back && scoreShown && collectShown && threeStars && gm.Score == 0 && gm.Collected == 0);
         }
 
         private static IEnumerator WaitScene(string name, float timeout)
